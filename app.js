@@ -237,7 +237,76 @@ function scoreShop(shop, criteria) {
   return { shop, score, distance, reasons: [...new Set(reasons)] };
 }
 
-// ---------- 検索と結果表示 ----------
+// ---------- 保存データ (お気に入り・前回の条件) ----------
+
+const FAVORITES_STORAGE = 'chikameshi.favorites';
+const CRITERIA_STORAGE = 'chikameshi.lastCriteria';
+
+function loadJson(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+}
+
+function saveJson(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* プライベートモード等 */ }
+}
+
+// お気に入りは店の情報ごと保存する (検索し直さなくても一覧を出せるように)
+let favorites = loadJson(FAVORITES_STORAGE, []);
+
+function isFavorite(id) {
+  return favorites.some((f) => f.id === id);
+}
+
+function toggleFavorite(shop) {
+  if (isFavorite(shop.id)) {
+    favorites = favorites.filter((f) => f.id !== shop.id);
+    showToast('お気に入りから外しました');
+  } else {
+    const { id, source, name, lat, lng, genreName, priceLabel, access, open, url, photo } = shop;
+    favorites.unshift({ id, source, name, lat, lng, genreName, priceLabel, access, open, url, photo, savedAt: Date.now() });
+    showToast('❤️ お気に入りに追加しました');
+  }
+  saveJson(FAVORITES_STORAGE, favorites);
+  document.querySelectorAll(`[data-fav="${CSS.escape(shop.id)}"]`).forEach((btn) => {
+    btn.setAttribute('aria-pressed', isFavorite(shop.id));
+  });
+  updateFavoriteCount();
+  if (!$('#favorites-view').hidden) renderFavorites();
+}
+
+function saveCriteria() {
+  saveJson(CRITERIA_STORAGE, {
+    people: $('#people').value,
+    vibe: state.vibe,
+    foods: [...state.foods],
+    keyword: $('#keyword').value,
+    budget: $('#budget').value,
+    radius: $('#radius').value,
+  });
+}
+
+function restoreCriteria() {
+  const saved = loadJson(CRITERIA_STORAGE, null);
+  if (!saved) return;
+  if (VIBES.some((v) => v.id === saved.vibe)) state.vibe = saved.vibe;
+  state.foods = new Set((saved.foods || []).filter((id) => FOODS.some((f) => f.id === id)));
+  renderChips();
+  const setIfValid = (sel, value) => {
+    const el = $(sel);
+    if (value == null) return;
+    if (el.tagName === 'SELECT' && ![...el.options].some((o) => o.value === String(value))) return;
+    el.value = value;
+  };
+  setIfValid('#people', saved.people);
+  setIfValid('#keyword', saved.keyword);
+  setIfValid('#budget', saved.budget);
+  setIfValid('#radius', saved.radius);
+}
+
+// ---------- 検索 ----------
+
+let lastSearch = null; // { ranked, criteria, source }
+const shopIndex = new Map(); // id -> shop (ボタン操作から店を引くため)
 
 $('#search-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -252,6 +321,7 @@ async function search() {
   const btn = $('#search-btn');
   btn.disabled = true;
   btn.textContent = '探しています…';
+  saveCriteria();
 
   const criteria = {
     origin: state.position,
@@ -275,7 +345,9 @@ async function search() {
       .sort((a, b) => b.score - a.score || a.distance - b.distance)
       .slice(0, MAX_RESULTS);
 
-    renderResults(ranked, criteria, apiKey ? 'hotpepper' : 'osm');
+    lastSearch = { ranked, criteria, source: apiKey ? 'hotpepper' : 'osm' };
+    $('#sort').value = 'score';
+    renderResults();
   } catch (err) {
     renderError(err);
   } finally {
@@ -283,6 +355,8 @@ async function search() {
     btn.textContent = 'おすすめを探す';
   }
 }
+
+// ---------- 結果表示 ----------
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -293,7 +367,46 @@ function formatDistance(m) {
   return `${m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`}・徒歩${walk}分`;
 }
 
-function renderResults(ranked, criteria, source) {
+function mapsUrl(shop) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${shop.name} ${shop.lat},${shop.lng}`)}`;
+}
+
+const SORTERS = {
+  score: (a, b) => b.score - a.score || a.distance - b.distance,
+  distance: (a, b) => a.distance - b.distance,
+  price: (a, b) => (a.shop.priceMin ?? Infinity) - (b.shop.priceMin ?? Infinity) || a.distance - b.distance,
+};
+
+function shopCardHtml(shop, { rank, distance, reasons = [] }) {
+  shopIndex.set(shop.id, shop);
+  const id = escapeHtml(shop.id);
+  return `
+    <li class="result" data-id="${id}">
+      ${rank ? `<span class="rank">${rank}</span>` : ''}
+      ${shop.photo ? `<img class="photo" src="${escapeHtml(shop.photo)}" alt="" loading="lazy">` : ''}
+      <div class="body">
+        <div class="title-row">
+          <h3>${escapeHtml(shop.name)}</h3>
+          <button type="button" class="fav-btn" data-fav="${id}" aria-pressed="${isFavorite(shop.id)}" aria-label="お気に入り">
+            <span class="off">🤍</span><span class="on">❤️</span>
+          </button>
+        </div>
+        <p class="meta">${escapeHtml(shop.genreName)}${distance != null ? `｜${formatDistance(distance)}` : ''}</p>
+        ${shop.priceLabel ? `<p class="meta">💴 ${escapeHtml(shop.priceLabel)}</p>` : ''}
+        ${reasons.length ? `<p class="tags">${reasons.map((r) => `<span>${escapeHtml(r)}</span>`).join('')}</p>` : ''}
+        ${shop.catchText ? `<p class="catch">${escapeHtml(shop.catchText)}</p>` : ''}
+        ${shop.open ? `<details><summary>営業時間</summary>${escapeHtml(shop.open)}</details>` : ''}
+        <div class="actions">
+          <a href="${mapsUrl(shop)}" target="_blank" rel="noopener">🗺️ 道順</a>
+          ${shop.url ? `<a href="${escapeHtml(shop.url)}" target="_blank" rel="noopener">詳細・予約</a>` : ''}
+          <button type="button" class="link-btn" data-share="${id}">📤 共有</button>
+        </div>
+      </div>
+    </li>`;
+}
+
+function renderResults() {
+  const { ranked, criteria, source } = lastSearch;
   const section = $('#results-section');
   section.hidden = false;
   updateCredit(source === 'hotpepper');
@@ -303,75 +416,186 @@ function renderResults(ranked, criteria, source) {
   $('#results-note').textContent = source === 'osm'
     ? '※ APIキー未設定のため OpenStreetMap のデータで検索しています。予算は業態からの推定です（⚙️ から設定できます）'
     : '';
+  $('#results-tools').hidden = ranked.length === 0;
+
+  renderResultList();
+
+  if (ranked.length > 0) {
+    const bounds = L.latLngBounds([[criteria.origin.lat, criteria.origin.lng]]);
+    ranked.forEach(({ shop }) => bounds.extend([shop.lat, shop.lng]));
+    map.fitBounds(bounds, { padding: [24, 24], maxZoom: 17 });
+  }
+  section.scrollIntoView({ behavior: 'smooth' });
+}
+
+// 並び替えのたびに一覧と地図の番号を振り直す
+function renderResultList() {
+  const { ranked } = lastSearch;
+  const sorted = [...ranked].sort(SORTERS[$('#sort').value] || SORTERS.score);
 
   shopLayer.clearLayers();
   shopMarkers.clear();
 
   const list = $('#results');
-  if (ranked.length === 0) {
+  if (sorted.length === 0) {
     list.innerHTML = '<li class="empty">条件に合うお店が見つかりませんでした。範囲を広げるか条件をゆるめてみてください。</li>';
-    section.scrollIntoView({ behavior: 'smooth' });
     return;
   }
 
-  list.innerHTML = ranked.map(({ shop, distance, reasons }, i) => {
-    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${shop.name} ${shop.lat},${shop.lng}`)}`;
-    return `
-      <li class="result" data-id="${escapeHtml(shop.id)}">
-        <span class="rank">${i + 1}</span>
-        ${shop.photo ? `<img class="photo" src="${escapeHtml(shop.photo)}" alt="" loading="lazy">` : ''}
-        <div class="body">
-          <h3>${escapeHtml(shop.name)}</h3>
-          <p class="meta">${escapeHtml(shop.genreName)}｜${formatDistance(distance)}</p>
-          ${shop.priceLabel ? `<p class="meta">💴 ${escapeHtml(shop.priceLabel)}</p>` : ''}
-          ${reasons.length ? `<p class="tags">${reasons.map((r) => `<span>${escapeHtml(r)}</span>`).join('')}</p>` : ''}
-          ${shop.catchText ? `<p class="catch">${escapeHtml(shop.catchText)}</p>` : ''}
-          ${shop.open ? `<details><summary>営業時間</summary>${escapeHtml(shop.open)}</details>` : ''}
-          <div class="actions">
-            <a href="${mapsUrl}" target="_blank" rel="noopener">🗺️ 道順</a>
-            ${shop.url ? `<a href="${escapeHtml(shop.url)}" target="_blank" rel="noopener">詳細・予約</a>` : ''}
-          </div>
-        </div>
-      </li>`;
-  }).join('');
+  list.innerHTML = sorted.map((item, i) => shopCardHtml(item.shop, { ...item, rank: i + 1 })).join('');
 
-  const bounds = L.latLngBounds([[criteria.origin.lat, criteria.origin.lng]]);
-  ranked.forEach(({ shop }, i) => {
+  sorted.forEach(({ shop }, i) => {
     const icon = L.divIcon({ className: 'shop-marker', html: `<span>${i + 1}</span>`, iconSize: [26, 26] });
     const marker = L.marker([shop.lat, shop.lng], { icon })
       .bindPopup(`<b>${i + 1}. ${escapeHtml(shop.name)}</b><br>${escapeHtml(shop.genreName)}`)
       .on('click', () => highlight(shop.id))
       .addTo(shopLayer);
     shopMarkers.set(shop.id, marker);
-    bounds.extend([shop.lat, shop.lng]);
   });
-  map.fitBounds(bounds, { padding: [24, 24], maxZoom: 17 });
-  section.scrollIntoView({ behavior: 'smooth' });
 }
 
-function highlight(id) {
-  document.querySelectorAll('.result').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
-  document.querySelector(`.result[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+$('#sort').addEventListener('change', () => { if (lastSearch) renderResultList(); });
+
+function highlight(id, { scroll = true } = {}) {
+  document.querySelectorAll('#results .result').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
+  if (scroll) document.querySelector(`#results .result[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function focusOnMap(id) {
+  const marker = shopMarkers.get(id);
+  if (!marker) return;
+  map.setView(marker.getLatLng(), 17);
+  marker.openPopup();
+}
+
+// カード内のボタン (お気に入り・共有) は一覧・お気に入りタブ共通で処理する
+function handleCardButtons(e) {
+  const favBtn = e.target.closest('[data-fav]');
+  if (favBtn) {
+    const shop = shopIndex.get(favBtn.dataset.fav);
+    if (shop) toggleFavorite(shop);
+    return true;
+  }
+  const shareBtn = e.target.closest('[data-share]');
+  if (shareBtn) {
+    const shop = shopIndex.get(shareBtn.dataset.share);
+    if (shop) shareShop(shop);
+    return true;
+  }
+  return Boolean(e.target.closest('a, details, button'));
 }
 
 $('#results').addEventListener('click', (e) => {
-  if (e.target.closest('a, details')) return;
+  if (handleCardButtons(e)) return;
   const item = e.target.closest('.result');
-  const marker = item && shopMarkers.get(item.dataset.id);
-  if (!marker) return;
+  if (!item) return;
   highlight(item.dataset.id);
-  map.setView(marker.getLatLng(), 17);
-  marker.openPopup();
+  focusOnMap(item.dataset.id);
   $('#location-card').scrollIntoView({ behavior: 'smooth' });
 });
 
 function renderError(err) {
-  const message = navigator.onLine ? err.message : 'オフラインのため検索できません';
+  const message = navigator.onLine ? err.message : 'オフラインのため検索できません。電波の良い場所で再度お試しください';
   $('#results-section').hidden = false;
+  $('#results-tools').hidden = true;
   $('#source-badge').textContent = '';
   $('#results-title').textContent = 'エラー';
   $('#results-note').textContent = '';
-  $('#results').innerHTML = `<li class="empty">⚠️ ${escapeHtml(message)}<br>電波の良い場所で再度お試しください。</li>`;
+  $('#results').innerHTML = `<li class="empty">⚠️ ${escapeHtml(message)}</li>`;
+}
+
+// ---------- 共有 ----------
+
+async function shareShop(shop) {
+  const lines = [`🍽️ ${shop.name}`, shop.genreName, shop.priceLabel && `💴 ${shop.priceLabel}`].filter(Boolean);
+  const url = shop.url || mapsUrl(shop);
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: shop.name, text: lines.join('\n'), url });
+    } catch { /* キャンセル */ }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(`${lines.join('\n')}\n${url}`);
+    showToast('📋 お店の情報をコピーしました');
+  } catch {
+    showToast('共有できませんでした');
+  }
+}
+
+// ---------- おまかせ (ルーレット) ----------
+
+let rouletteRunning = false;
+
+$('#roulette-btn').addEventListener('click', () => {
+  if (!lastSearch || rouletteRunning) return;
+  // 表示順に関係なく、おすすめ度の上位から選ぶ
+  const candidates = [...lastSearch.ranked].sort(SORTERS.score).slice(0, 5).map((r) => r.shop.id);
+  if (candidates.length === 0) return;
+
+  rouletteRunning = true;
+  const winner = candidates[Math.floor(Math.random() * candidates.length)];
+  const steps = 14 + candidates.indexOf(winner) - (14 % candidates.length);
+  let step = 0;
+  $('#results-section').scrollIntoView({ behavior: 'smooth' });
+
+  const tick = () => {
+    highlight(candidates[step % candidates.length], { scroll: false });
+    step += 1;
+    if (step <= steps) {
+      setTimeout(tick, 60 + step * 18); // だんだん遅くする
+      return;
+    }
+    rouletteRunning = false;
+    highlight(winner);
+    focusOnMap(winner);
+    showToast(`🎉 今日はここ！「${shopIndex.get(winner)?.name}」`);
+  };
+  tick();
+});
+
+// ---------- お気に入りタブ ----------
+
+function updateFavoriteCount() {
+  $('#fav-count').textContent = favorites.length ? favorites.length : '';
+}
+
+function renderFavorites() {
+  const list = $('#favorites-list');
+  if (favorites.length === 0) {
+    list.innerHTML = '<li class="empty">まだお気に入りはありません。<br>検索結果の 🤍 を押すと保存できます。</li>';
+    return;
+  }
+  list.innerHTML = favorites.map((shop) => shopCardHtml(shop, {
+    distance: state.position ? distanceMeters(state.position, shop) : null,
+  })).join('');
+}
+
+$('#favorites-list').addEventListener('click', handleCardButtons);
+
+function switchTab(tab) {
+  document.querySelectorAll('[data-tab]').forEach((btn) => btn.setAttribute('aria-selected', btn.dataset.tab === tab));
+  $('#search-view').hidden = tab !== 'search';
+  $('#favorites-view').hidden = tab !== 'favorites';
+  if (tab === 'favorites') renderFavorites();
+  else map.invalidateSize(); // 非表示中に地図のサイズが崩れるのを直す
+  window.scrollTo(0, 0);
+}
+
+document.querySelectorAll('[data-tab]').forEach((btn) => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// ---------- トースト ----------
+
+let toastTimer = null;
+
+function showToast(message) {
+  const toast = $('#toast');
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
 // ---------- PWA (ホーム画面に追加) ----------
@@ -419,6 +643,8 @@ function setupPwa() {
 // ---------- 初期化 ----------
 
 renderChips();
+restoreCriteria();
 updateCredit();
+updateFavoriteCount();
 setupPwa();
 locate();

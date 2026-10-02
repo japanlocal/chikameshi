@@ -31,6 +31,7 @@
       <button type="button" class="icon-btn" id="ios-install-close" aria-label="閉じる">✕</button>
     </div>
 
+    <div id="search-view">
     <section class="card" id="location-card">
       <div class="location-row">
         <span id="location-status">📍 現在地を取得していません</span>
@@ -87,9 +88,32 @@
         <span id="source-badge" class="badge"></span>
       </div>
       <p id="results-note" class="hint"></p>
+      <div id="results-tools" class="results-tools">
+        <select id="sort" aria-label="並び替え">
+          <option value="score">おすすめ順</option>
+          <option value="distance">近い順</option>
+          <option value="price">安い順</option>
+        </select>
+        <button id="roulette-btn" type="button" class="secondary">🎲 迷ったらおまかせ</button>
+      </div>
       <ol id="results" class="results"></ol>
     </section>
+    </div>
+
+    <section id="favorites-view" hidden>
+      <h2 class="view-title">❤️ お気に入り</h2>
+      <ul id="favorites-list" class="results"></ul>
+    </section>
   </main>
+
+  <nav class="tab-bar" role="tablist">
+    <button type="button" role="tab" data-tab="search" aria-selected="true"><span>🔍</span>さがす</button>
+    <button type="button" role="tab" data-tab="favorites" aria-selected="false">
+      <span>❤️</span>お気に入り<b id="fav-count" class="count"></b>
+    </button>
+  </nav>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <footer class="app-footer" id="credit"></footer>
 

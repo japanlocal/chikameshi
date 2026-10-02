@@ -19,6 +19,7 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
 ];
+const OVERPASS_TIMEOUT_MS = 20000; // 混雑時に応答が返らないことがあるので、次のサーバーへ切り替える
 
 // Hot Pepper API は CORS 非対応のため JSONP で呼ぶ
 function jsonp(url, timeoutMs = 15000) {
@@ -119,15 +120,19 @@ async function fetchOverpass({ lat, lng, radius }) {
       const res = await fetch(endpoint, {
         method: 'POST',
         body: new URLSearchParams({ data: query }),
+        signal: AbortSignal.timeout?.(OVERPASS_TIMEOUT_MS),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(res.status === 429 || res.status === 504 ? 'busy' : `HTTP ${res.status}`);
       const json = await res.json();
       return json.elements.map(normalizeOsmElement).filter((s) => s.lat && s.lng);
     } catch (e) {
       lastError = e;
     }
   }
-  throw new Error(`OpenStreetMap の取得に失敗しました (${lastError?.message})`);
+  const busy = lastError?.message === 'busy' || lastError?.name === 'TimeoutError';
+  throw new Error(busy
+    ? '地図データのサーバーが混み合っています。少し時間をおいてお試しください'
+    : `OpenStreetMap の取得に失敗しました (${lastError?.message})`);
 }
 
 function normalizeOsmElement(el) {
