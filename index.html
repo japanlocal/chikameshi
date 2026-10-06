@@ -4,7 +4,35 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#e8590c">
-  <title>ちかめし</title>
+  <title>ちかめし｜人数・雰囲気・予算で近くのおすすめ飲食店を探せる無料アプリ</title>
+  <meta name="description" content="ちかめしは、人数・雰囲気・食べたいもの・予算を選ぶだけで、現在地の近くにあるおすすめの飲食店を探せる無料のグルメアプリです。飲み会・デート・接待・家族での外食のお店選びに。登録不要、スマホのホーム画面にも追加できます。">
+  <link rel="canonical" href="https://japanlocal.github.io/chikameshi/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="ちかめし">
+  <meta property="og:title" content="ちかめし｜人数・雰囲気・予算で近くのおすすめ飲食店を探せる">
+  <meta property="og:description" content="人数・雰囲気・食べたいもの・予算を選ぶだけで、近くのおすすめのお店が見つかる無料アプリ。迷ったら🎲おまかせも。">
+  <meta property="og:url" content="https://japanlocal.github.io/chikameshi/">
+  <meta property="og:image" content="https://japanlocal.github.io/chikameshi/icons/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="ja_JP">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "ちかめし",
+    "alternateName": "chikameshi",
+    "url": "https://japanlocal.github.io/chikameshi/",
+    "description": "ちかめしは、人数・雰囲気・食べたいもの・予算を選ぶだけで、現在地の近くにあるおすすめの飲食店を探せる無料のグルメアプリです。飲み会・デート・接待・家族での外食のお店選びに。登録不要、スマホのホーム画面にも追加できます。",
+    "applicationCategory": "TravelApplication",
+    "operatingSystem": "iOS, Android, Windows, macOS",
+    "inLanguage": "ja",
+    "image": "https://japanlocal.github.io/chikameshi/icons/icon-512.png",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "JPY" },
+    "featureList": ["現在地から近くの飲食店を検索", "人数・雰囲気・食べたいもの・予算で絞り込み", "おすすめ順・近い順・安い順の並び替え", "迷ったときのおまかせルーレット", "お気に入り保存", "LINEなどへの共有"]
+  }
+  </script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -97,6 +125,45 @@
         <button id="roulette-btn" type="button" class="secondary">🎲 迷ったらおまかせ</button>
       </div>
       <ol id="results" class="results"></ol>
+    </section>
+
+    <!-- 検索エンジンにも読める紹介文 (JavaScript なしで表示される) -->
+    <section class="card about" aria-labelledby="about-title">
+      <h2 id="about-title">ちかめしとは</h2>
+      <p>
+        <strong>ちかめし</strong>は、<strong>人数・雰囲気（空気感）・食べたいもの・予算</strong>を選ぶだけで、
+        今いる場所の近くにある<strong>おすすめの飲食店</strong>を探せる無料のWebアプリです。
+        「近くで4人、落ち着いて和食、1人5,000円まで」のような条件から、ぴったりのお店をおすすめ順に表示します。
+      </p>
+
+      <h3>こんなときに</h3>
+      <ul>
+        <li>🎉 飲み会・歓送迎会で、大人数が入れる居酒屋を近くで探したい</li>
+        <li>💕 デートや記念日に、雰囲気の良いイタリアン・バーを見つけたい</li>
+        <li>🤝 接待で、個室のある落ち着いた和食のお店を選びたい</li>
+        <li>👨‍👩‍👧 家族・子連れで入りやすいお店を知りたい</li>
+        <li>⚡ ひとりでサクッとラーメンやカフェに寄りたい</li>
+      </ul>
+
+      <h3>使い方</h3>
+      <ol>
+        <li>位置情報を許可して、現在地を取得します（地図をタップして場所を指定することもできます）</li>
+        <li>人数・空気感・食べたいもの・予算・検索範囲を選びます</li>
+        <li>「おすすめを探す」を押すと、条件に合うお店がおすすめ順に並びます</li>
+        <li>決めきれないときは「🎲 迷ったらおまかせ」でルーレット！気になるお店は ❤️ で保存、📤 で友だちに共有できます</li>
+      </ol>
+
+      <h3>よくある質問</h3>
+      <dl>
+        <dt>無料で使えますか？</dt>
+        <dd>はい、すべての機能を無料で使えます。会員登録も不要です。</dd>
+        <dt>アプリのインストールは必要ですか？</dt>
+        <dd>ブラウザでそのまま使えます。iPhone は Safari の共有ボタンから「ホーム画面に追加」、Android は「インストール」を押すと、アプリのように起動できます。</dd>
+        <dt>位置情報は保存されますか？</dt>
+        <dd>現在地はお店を探すためだけに使い、ちかめしが保存・収集することはありません（検索のときに、店舗データの提供元である OpenStreetMap またはホットペッパーグルメへ送信されます）。お気に入りや検索条件は、お使いの端末の中だけに保存されます。</dd>
+        <dt>どこのお店が探せますか？</dt>
+        <dd>日本全国の飲食店に対応しています。居酒屋・和食・寿司・ラーメン・焼肉・イタリアン・フレンチ・中華・韓国料理・カフェ・バーなど13ジャンルから選べます。</dd>
+      </dl>
     </section>
     </div>
 

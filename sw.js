@@ -1,7 +1,7 @@
 // Service Worker: アプリ本体と地図をキャッシュしてオフラインでも起動できるようにする
 // アプリのファイルを変更したら VERSION を上げる
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const SHELL_CACHE = `chikameshi-shell-${VERSION}`;
 const TILE_CACHE = 'chikameshi-tiles';
 const MAX_TILES = 300;

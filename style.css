@@ -347,3 +347,13 @@ dialog label { display: block; font-weight: 700; margin-bottom: 8px; }
   transition: opacity 0.2s, transform 0.2s;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.about { font-size: 0.9rem; }
+.about h2 { margin: 0 0 8px; font-size: 1.05rem; }
+.about h3 { margin: 20px 0 6px; font-size: 0.95rem; }
+.about p { margin: 0; }
+.about ul, .about ol { margin: 0; padding-left: 1.4em; }
+.about li { margin: 4px 0; }
+.about dt { margin-top: 10px; font-weight: 700; }
+.about dt::before { content: "Q. "; color: var(--accent); }
+.about dd { margin: 2px 0 0; color: var(--muted); }
